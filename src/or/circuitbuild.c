@@ -2250,7 +2250,7 @@ choose_good_middle_server(uint8_t purpose,
                           int cur_len)
 {
   int i;
-  const node_t *r, *choice;
+  const node_t *r, *choice = NULL;
   crypt_path_t *cpath;
   smartlist_t *excluded;
   const or_options_t *options = get_options();
@@ -2276,7 +2276,58 @@ choose_good_middle_server(uint8_t purpose,
     flags |= CRN_NEED_CAPACITY;
   if (options->AllowInvalid_ & ALLOW_INVALID_MIDDLE)
     flags |= CRN_ALLOW_INVALID;
-  choice = router_choose_random_node(excluded, options->ExcludeNodes, flags);
+
+  /** rob added - start **/
+  int purpose_is_hs = 0;
+  if(purpose > CIRCUIT_PURPOSE_C_GENERAL &&
+      purpose < CIRCUIT_PURPOSE_C_MEASURE_TIMEOUT) {
+    purpose_is_hs = 1;
+  }
+
+  if (cur_len == 1 &&
+      (options->SecondHopMiddleNodes ||
+          (purpose_is_hs && options->SecondHopHSMiddleNodes))) {
+    smartlist_t* choices = smartlist_new();
+    int hs_middle = 0;
+
+    if(purpose_is_hs && options->SecondHopHSMiddleNodes) {
+      routerset_get_all_nodes(choices, options->SecondHopHSMiddleNodes,
+                                options->ExcludeNodes, 0);
+      hs_middle = 1;
+    } else {
+      routerset_get_all_nodes(choices, options->SecondHopMiddleNodes,
+                                      options->ExcludeNodes, 0);
+    }
+
+    smartlist_subtract(choices, excluded);
+    choice = node_sl_choose_by_bandwidth(choices, WEIGHT_FOR_MID);
+    smartlist_free(choices);
+
+    if(choice) {
+      extend_info_t *info = extend_info_from_node(choice, 0);
+
+      log_info(LD_CIRC,"chose router %s from %s for "
+                       "hop %d of circuit with purpose %u (%s)",
+                extend_info_describe(info),
+                hs_middle ? "SecondHopHSMiddleNodes" : "SecondHopMiddleNodes",
+                cur_len+1, purpose, circuit_purpose_to_string(purpose));
+
+      extend_info_free(info);
+    } else {
+      log_info(LD_CIRC,"failed to find router from %s for "
+                       "hop %d of circuit with purpose %u (%s), "
+                       "falling back to normal middle selection",
+                hs_middle ? "SecondHopHSMiddleNodes" : "SecondHopMiddleNodes",
+                cur_len+1, purpose, circuit_purpose_to_string(purpose));
+    }
+  }
+
+  /* if we still didn't get a relay, choose the normal way */
+  if(!choice) {
+    choice = router_choose_random_node(excluded, options->ExcludeNodes, flags);
+  }
+  /* rob added - end */
+
   smartlist_free(excluded);
   return choice;
 }

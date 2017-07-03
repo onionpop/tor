@@ -3658,6 +3658,12 @@ typedef struct {
   char *Address; /**< OR only: configured address for this onion router. */
   char *PidFile; /**< Where to store PID of Tor process. */
 
+  /* Rob added: relays to consider for 2nd hop from client on all circuits.
+   * Uses the same format as EntryNodes and ExitNodes. */
+  routerset_t *SecondHopMiddleNodes;
+  /* Rob added: relays to consider for 2nd hop from client on HS circuits.
+   * Uses the same format as EntryNodes and ExitNodes. */
+  routerset_t *SecondHopHSMiddleNodes;
   routerset_t *ExitNodes; /**< Structure containing nicknames, digests,
                            * country codes and IP address patterns of ORs to
                            * consider as exits. */
