@@ -3410,6 +3410,7 @@ typedef struct or_circuit_t {
 
   /* rob: got a signal cell on this circuit */
   unsigned int received_signal_from_client;
+  char* most_recent_signal_payload;
 
   /** If set, this circuit carries HS traffic. Consider it in any HS
    *  statistics. */

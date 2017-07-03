@@ -8141,6 +8141,14 @@ control_event_privcount_circuit_close(circuit_t *circ,
                            orcirc->privcount_n_dir_bytes_outbound);
   }
 
+  if (orcirc && orcirc->received_signal_from_client) {
+    smartlist_add_asprintf(fields, "ReceivedCircuitSignal=1");
+    if(orcirc->most_recent_signal_payload) {
+      smartlist_add_asprintf(fields, "MostRecentCircuitSignalPayload=%s",
+          orcirc->most_recent_signal_payload);
+    }
+  }
+
   /* Now create the final string */
 
   size_t len = 0;

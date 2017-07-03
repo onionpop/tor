@@ -636,8 +636,12 @@ relay_command_to_string(uint8_t command)
   }
 }
 
-/* rob: send a signal cell to any of the nodes in our signal list */
-void relay_send_signal_if_appropriate(origin_circuit_t *circ) {
+/* rob: send a signal cell to any of the nodes in our signal list.
+ * return number of such cells sent down the circuit. */
+int relay_send_signal_if_appropriate(origin_circuit_t *circ, char* payload,
+    size_t payload_len) {
+  int count = 0;
+
   if(circ->cpath) {
     crypt_path_t *start = circ->cpath;
     crypt_path_t *this = circ->cpath;
@@ -647,18 +651,24 @@ void relay_send_signal_if_appropriate(origin_circuit_t *circ) {
         if(node && routerset_contains_node(get_options()->SignalNodes, node)) {
           int result = relay_send_command_from_edge(0, TO_CIRCUIT(circ),
                                                  RELAY_COMMAND_SIGNAL,
-                                                 NULL, 0, this);
+                                                 payload, payload_len, this);
           log_info(LD_OR, "sending signal %s "
               "origin_circ_id=%u n_chan_id="U64_FORMAT" n_circ_id=%u to '%s'",
               result == 0 ? "succeeded" : "failed",
               circ->global_identifier,
               U64_PRINTF_ARG(circ->base_.n_chan->global_identifier),
               circ->base_.n_circ_id, node_describe(node));
+
+          if(result == 0) {
+            count++;
+          }
         }
       }
       this = this->next;
     } while (this != start);
   }
+
+  return count;
 }
 
 /** Make a relay cell out of <b>relay_command</b> and <b>payload</b>, and send
@@ -1597,16 +1607,28 @@ connection_edge_process_relay_cell(cell_t *cell, circuit_t *circ,
         if (orcirc->p_chan) {
           orcirc->received_signal_from_client = 1;
 
-          // TODO should the signal trigger any action by the relay?
+          char* message = tor_calloc(1, CELL_PAYLOAD_SIZE);
+          tor_snprintf(message, CELL_PAYLOAD_SIZE-1, "%s",
+              (char*)(cell->payload + RELAY_HEADER_SIZE));
 
           const node_t* prev_node = node_get_by_id(orcirc->p_chan->identity_digest);
 
           log_info(LD_PROTOCOL,
-              "client signal delivered by '%s', p_chan_id="U64_FORMAT
+              "client signal message '%s' delivered by '%s', p_chan_id="U64_FORMAT
               " p_circ_id=%u",
+              message,
               prev_node ? node_describe(prev_node) : "unknown",
               U64_PRINTF_ARG(orcirc->p_chan->global_identifier),
               orcirc->p_circ_id);
+
+          if(strnlen(message, CELL_PAYLOAD_SIZE) > 0) {
+            if(orcirc->most_recent_signal_payload) {
+              tor_free(orcirc->most_recent_signal_payload);
+            }
+            orcirc->most_recent_signal_payload = message;
+          } else {
+            tor_free(message);
+          }
         }
       }
       return 0;

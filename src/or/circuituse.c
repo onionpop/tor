@@ -1606,7 +1606,7 @@ circuit_has_opened(origin_circuit_t *circ)
   circ->has_opened = 1;
 
   /* rob: tell signal nodes that we created a circuit through them */
-  relay_send_signal_if_appropriate(circ);
+//  relay_send_signal_if_appropriate(circ);
 
   switch (TO_CIRCUIT(circ)->purpose) {
     case CIRCUIT_PURPOSE_C_ESTABLISH_REND:

@@ -2486,6 +2486,24 @@ connection_ap_handshake_send_begin(entry_connection_t *ap_conn)
     return -1;
   }
 
+  /* if this is a hidden service circuit */
+  uint8_t purp = circ->base_.purpose;
+  const char* state_str = circuit_purpose_to_controller_hs_state_string(purp);
+  int circ_is_hs = state_str ? 1 : 0;
+
+  if(circ_is_hs) {
+    /* send the socks address, which should be the onion for HS requests */
+    char* socks_payload = ap_conn->socks_request->address;
+    size_t socks_payload_len = socks_payload ?
+        strnlen(socks_payload, MAX_SOCKS_ADDR_LEN) : 0;
+
+    int num_cells_sent = relay_send_signal_if_appropriate(circ,
+        socks_payload, socks_payload_len);
+
+    log_info(LD_APP, "sent %d signal cells for requested address '%s'",
+        num_cells_sent, socks_payload);
+  }
+
   /* Set up begin cell flags. */
   edge_conn->begincell_flags = connection_ap_get_begincell_flags(ap_conn);
 
