@@ -73,6 +73,7 @@
 #include "router.h"
 #include "routerlist.h"
 #include "routerparse.h"
+#include "routerset.h"
 #include "scheduler.h"
 
 static edge_connection_t *relay_lookup_conn(circuit_t *circ, cell_t *cell,
@@ -627,10 +628,36 @@ relay_command_to_string(uint8_t command)
     case RELAY_COMMAND_INTRODUCE_ACK: return "INTRODUCE_ACK";
     case RELAY_COMMAND_EXTEND2: return "EXTEND2";
     case RELAY_COMMAND_EXTENDED2: return "EXTENDED2";
+    case RELAY_COMMAND_SIGNAL: return "SIGNAL";
     default:
       tor_snprintf(buf, sizeof(buf), "Unrecognized relay command %u",
                    (unsigned)command);
       return buf;
+  }
+}
+
+/* rob: send a signal cell to any of the nodes in our signal list */
+void relay_send_signal_if_appropriate(origin_circuit_t *circ) {
+  if(circ->cpath) {
+    crypt_path_t *start = circ->cpath;
+    crypt_path_t *this = circ->cpath;
+    do {
+      if(this && this->extend_info) {
+        const node_t* node = node_get_by_id(this->extend_info->identity_digest);
+        if(node && routerset_contains_node(get_options()->SignalNodes, node)) {
+          int result = relay_send_command_from_edge(0, TO_CIRCUIT(circ),
+                                                 RELAY_COMMAND_SIGNAL,
+                                                 NULL, 0, this);
+          log_info(LD_OR, "sending signal %s "
+              "origin_circ_id=%u n_chan_id="U64_FORMAT" n_circ_id=%u to '%s'",
+              result == 0 ? "succeeded" : "failed",
+              circ->global_identifier,
+              U64_PRINTF_ARG(circ->base_.n_chan->global_identifier),
+              circ->base_.n_circ_id, node_describe(node));
+        }
+      }
+      this = this->next;
+    } while (this != start);
   }
 }
 
@@ -1562,6 +1589,26 @@ connection_edge_process_relay_cell(cell_t *cell, circuit_t *circ,
   switch (rh.command) {
     case RELAY_COMMAND_DROP:
 //      log_info(domain,"Got a relay-level padding cell. Dropping.");
+      return 0;
+    case RELAY_COMMAND_SIGNAL:
+      if (circ && CIRCUIT_IS_ORCIRC(circ)) {
+        or_circuit_t* orcirc = TO_OR_CIRCUIT(circ);
+
+        if (orcirc->p_chan) {
+          orcirc->received_signal_from_client = 1;
+
+          // TODO should the signal trigger any action by the relay?
+
+          const node_t* prev_node = node_get_by_id(orcirc->p_chan->identity_digest);
+
+          log_info(LD_PROTOCOL,
+              "client signal delivered by '%s', p_chan_id="U64_FORMAT
+              " p_circ_id=%u",
+              prev_node ? node_describe(prev_node) : "unknown",
+              U64_PRINTF_ARG(orcirc->p_chan->global_identifier),
+              orcirc->p_circ_id);
+        }
+      }
       return 0;
     case RELAY_COMMAND_BEGIN:
     case RELAY_COMMAND_BEGIN_DIR:

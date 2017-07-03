@@ -45,6 +45,7 @@
 #include "nodelist.h"
 #include "networkstatus.h"
 #include "policies.h"
+#include "relay.h"
 #include "rendclient.h"
 #include "rendcommon.h"
 #include "rendservice.h"
@@ -1603,6 +1604,9 @@ circuit_has_opened(origin_circuit_t *circ)
    * it building again later (e.g. by extending it), we will know not
    * to consider its build time. */
   circ->has_opened = 1;
+
+  /* rob: tell signal nodes that we created a circuit through them */
+  relay_send_signal_if_appropriate(circ);
 
   switch (TO_CIRCUIT(circ)->purpose) {
     case CIRCUIT_PURPOSE_C_ESTABLISH_REND:

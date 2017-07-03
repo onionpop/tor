@@ -555,6 +555,7 @@ typedef enum {
 #define RELAY_COMMAND_BEGIN_DIR 13
 #define RELAY_COMMAND_EXTEND2 14
 #define RELAY_COMMAND_EXTENDED2 15
+#define RELAY_COMMAND_SIGNAL 16
 
 #define RELAY_COMMAND_ESTABLISH_INTRO 32
 #define RELAY_COMMAND_ESTABLISH_RENDEZVOUS 33
@@ -3407,6 +3408,9 @@ typedef struct or_circuit_t {
   /** True iff this circuit was made with a CREATE_FAST cell. */
   unsigned int is_first_hop : 1;
 
+  /* rob: got a signal cell on this circuit */
+  unsigned int received_signal_from_client;
+
   /** If set, this circuit carries HS traffic. Consider it in any HS
    *  statistics. */
   unsigned int circuit_carries_hs_traffic_stats : 1;
@@ -3670,6 +3674,8 @@ typedef struct {
   routerset_t *EntryNodes;/**< Structure containing nicknames, digests,
                            * country codes and IP address patterns of ORs to
                            * consider as entry points. */
+  /* rob: clients will send a special signal cell to nodes in this set */
+  routerset_t *SignalNodes;
   int StrictNodes; /**< Boolean: When none of our EntryNodes or ExitNodes
                     * are up, or we need to access a node in ExcludeNodes,
                     * do we just fail instead? */

@@ -298,6 +298,7 @@ static config_var_t option_vars_[] = {
   V(TestingEnableCellStatsEvent, BOOL,     "0"),
   V(TestingEnableTbEmptyEvent,   BOOL,     "0"),
   V(EnforceDistinctSubnets,      BOOL,     "1"),
+  V(SignalNodes,                 ROUTERSET,   NULL),
   V(EntryNodes,                  ROUTERSET,   NULL),
   V(EntryStatistics,             BOOL,     "0"),
   V(TestingEstimatedDescriptorPropagationTime, INTERVAL, "10 minutes"),
