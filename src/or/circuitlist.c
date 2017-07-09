@@ -955,10 +955,7 @@ circuit_free(circuit_t *circ)
       other->rend_splice = NULL;
     }
 
-    if(ocirc->most_recent_signal_payload) {
-      tor_free(ocirc->most_recent_signal_payload);
-      ocirc->most_recent_signal_payload = NULL;
-    }
+    tor_free(ocirc->most_recent_signal_payload);
 
     /* remove from map. */
     circuit_set_p_circid_chan(ocirc, 0, NULL);

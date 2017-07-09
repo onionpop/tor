@@ -1607,28 +1607,31 @@ connection_edge_process_relay_cell(cell_t *cell, circuit_t *circ,
         if (orcirc->p_chan) {
           orcirc->received_signal_from_client = 1;
 
-          char* message = tor_calloc(1, CELL_PAYLOAD_SIZE);
-          tor_snprintf(message, CELL_PAYLOAD_SIZE-1, "%s",
-              (char*)(cell->payload + RELAY_HEADER_SIZE));
+          char* message = NULL;
+
+          size_t message_len = strnlen((char*)(
+              cell->payload + RELAY_HEADER_SIZE), CELL_PAYLOAD_SIZE);
+
+          if(message_len > 0) {
+            message = tor_calloc(1, message_len + 1);
+            tor_snprintf(message, message_len + 1, "%s",
+                (char*)(cell->payload + RELAY_HEADER_SIZE));
+
+            if(orcirc->most_recent_signal_payload) {
+              tor_free(orcirc->most_recent_signal_payload);
+            }
+            orcirc->most_recent_signal_payload = message;
+          }
 
           const node_t* prev_node = node_get_by_id(orcirc->p_chan->identity_digest);
 
           log_info(LD_PROTOCOL,
               "client signal message '%s' delivered by '%s', p_chan_id="U64_FORMAT
               " p_circ_id=%u",
-              message,
+              message ? message : "",
               prev_node ? node_describe(prev_node) : "unknown",
               U64_PRINTF_ARG(orcirc->p_chan->global_identifier),
               orcirc->p_circ_id);
-
-          if(strnlen(message, CELL_PAYLOAD_SIZE) > 0) {
-            if(orcirc->most_recent_signal_payload) {
-              tor_free(orcirc->most_recent_signal_payload);
-            }
-            orcirc->most_recent_signal_payload = message;
-          } else {
-            tor_free(message);
-          }
         }
       }
       return 0;

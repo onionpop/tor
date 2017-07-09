@@ -2278,11 +2278,8 @@ choose_good_middle_server(uint8_t purpose,
     flags |= CRN_ALLOW_INVALID;
 
   /** rob added - start **/
-  int purpose_is_hs = 0;
-  if(purpose > CIRCUIT_PURPOSE_C_GENERAL &&
-      purpose < CIRCUIT_PURPOSE_C_MEASURE_TIMEOUT) {
-    purpose_is_hs = 1;
-  }
+  const char* state_str = circuit_purpose_to_controller_hs_state_string(purpose);
+  int purpose_is_hs = state_str ? 1 : 0;
 
   if (cur_len == 1 &&
       (options->SecondHopMiddleNodes ||

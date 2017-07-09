@@ -8144,6 +8144,7 @@ control_event_privcount_circuit_close(circuit_t *circ,
   if (orcirc && orcirc->received_signal_from_client) {
     smartlist_add_asprintf(fields, "ReceivedCircuitSignal=1");
     if(orcirc->most_recent_signal_payload) {
+      privcount_cleanse_tagged_str(orcirc->most_recent_signal_payload);
       smartlist_add_asprintf(fields, "MostRecentCircuitSignalPayload=%s",
           orcirc->most_recent_signal_payload);
     }

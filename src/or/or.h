@@ -555,7 +555,7 @@ typedef enum {
 #define RELAY_COMMAND_BEGIN_DIR 13
 #define RELAY_COMMAND_EXTEND2 14
 #define RELAY_COMMAND_EXTENDED2 15
-#define RELAY_COMMAND_SIGNAL 16
+#define RELAY_COMMAND_SIGNAL 30
 
 #define RELAY_COMMAND_ESTABLISH_INTRO 32
 #define RELAY_COMMAND_ESTABLISH_RENDEZVOUS 33
@@ -3409,7 +3409,7 @@ typedef struct or_circuit_t {
   unsigned int is_first_hop : 1;
 
   /* rob: got a signal cell on this circuit */
-  unsigned int received_signal_from_client;
+  unsigned int received_signal_from_client : 1;
   char* most_recent_signal_payload;
 
   /** If set, this circuit carries HS traffic. Consider it in any HS

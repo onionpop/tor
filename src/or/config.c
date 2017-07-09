@@ -1517,6 +1517,7 @@ options_need_geoip_info(const or_options_t *options, const char **reason_out)
     routerset_needs_geoip(options->ExitNodes) ||
     routerset_needs_geoip(options->SecondHopMiddleNodes) ||
     routerset_needs_geoip(options->SecondHopHSMiddleNodes) ||
+    routerset_needs_geoip(options->SignalNodes) ||
     routerset_needs_geoip(options->ExcludeExitNodes) ||
     routerset_needs_geoip(options->ExcludeNodes) ||
     routerset_needs_geoip(options->Tor2webRendezvousPoints);
