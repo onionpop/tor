@@ -3674,6 +3674,8 @@ typedef struct {
   /* Rob added: relays to consider for 2nd hop from client on HS circuits.
    * Uses the same format as EntryNodes and ExitNodes. */
   routerset_t *SecondHopHSMiddleNodes;
+  /* Rob added: relays to consider for rendezvous node on HS circuits */
+  routerset_t *RendezvousNodes;
   routerset_t *ExitNodes; /**< Structure containing nicknames, digests,
                            * country codes and IP address patterns of ORs to
                            * consider as exits. */

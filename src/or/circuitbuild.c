@@ -1975,6 +1975,27 @@ pick_rendezvous_node(router_crn_flags_t flags)
   }
 #endif
 
+  if (options->RendezvousNodes) {
+    smartlist_t* choices = smartlist_new();
+    routerset_get_all_nodes(choices, options->RendezvousNodes,
+                              options->ExcludeNodes, 0);
+    const node_t *choice = node_sl_choose_by_bandwidth(choices, WEIGHT_FOR_MID);
+    smartlist_free(choices);
+
+    if(choice) {
+      extend_info_t *info = extend_info_from_node(choice, 0);
+
+      log_info(LD_CIRC,"chose router %s from RendezvousNodes",
+          extend_info_describe(info));
+
+      extend_info_free(info);
+
+      return choice;
+    } else {
+      log_info(LD_CIRC,"failed to find router from RendezvousNodes");
+    }
+  }
+
   return router_choose_random_node(NULL, options->ExcludeNodes, flags);
 }
 
