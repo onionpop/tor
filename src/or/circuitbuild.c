@@ -2020,6 +2020,9 @@ choose_good_exit_server(uint8_t purpose,
   if (need_capacity)
     flags |= CRN_NEED_CAPACITY;
 
+  if(options->RendezvousNodes){
+    return pick_rendezvous_node(flags);
+  }
   switch (purpose) {
     case CIRCUIT_PURPOSE_C_GENERAL:
       if (options->AllowInvalid_ & ALLOW_INVALID_MIDDLE)
