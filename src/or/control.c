@@ -7605,7 +7605,63 @@ control_event_privcount_circuit_cell(const channel_t *chan,
 
   /* Ignore events that we aren't sampling */
   if (circ && circ->privcount_event_sample_reject) {
-    return;
+    /* this circuit is not in our sample, but
+     * if we get a signal cell on this circuit then we should keep it anyway.
+     * the signal cell arrives after the circuit it built.
+     * make sure we don't throw cells away before the signal arrives.
+     */
+    if (CIRCUIT_IS_ORCIRC(circ)) {
+      or_circuit_t* orcirc = TO_OR_CIRCUIT(circ);
+
+      if (orcirc->signal_never_coming) {
+        return;
+      }
+
+      if (orcirc->signal_received_from_client) {
+        circ->privcount_event_sample_reject = 0;
+
+        /* if we have queued cell events, send them now */
+        if (orcirc->signal_control_event_buffer) {
+          SMARTLIST_FOREACH_BEGIN(orcirc->signal_control_event_buffer,
+              char*, cell_event_string) {
+            /* send the buffered events and then clear buffer */
+            send_control_event(EVENT_PRIVCOUNT_CIRCUIT_CELL,
+                               "650 PRIVCOUNT_CIRCUIT_CELL %s\r\n",
+                               cell_event_string);
+            tor_free(cell_event_string);
+          } SMARTLIST_FOREACH_END(cell_event_string);
+
+          smartlist_free(orcirc->signal_control_event_buffer);
+          orcirc->signal_control_event_buffer = NULL;
+        }
+      } else {
+        /* if this is the first cell, we need to init the buffer */
+        if (!orcirc->signal_control_event_buffer) {
+          orcirc->signal_control_event_buffer = smartlist_new();
+        }
+
+        /* if we have enough cells in the buffer and a signal still has not
+         * arrived, then give up and assume this is not a crawler circuit. */
+        if (smartlist_len(orcirc->signal_control_event_buffer) >= 20) {
+          orcirc->signal_never_coming = 1;
+
+          SMARTLIST_FOREACH_BEGIN(orcirc->signal_control_event_buffer,
+              char*, cell_event_string) {
+            tor_free(cell_event_string);
+          } SMARTLIST_FOREACH_END(cell_event_string);
+
+          smartlist_free(orcirc->signal_control_event_buffer);
+          orcirc->signal_control_event_buffer = NULL;
+
+          return;
+        } else {
+          /* in this case the cell event msg will get appended at the end of
+           * this function */
+        }
+      }
+    } else {
+      return;
+    }
   }
 
   /* Filter out circuit events for circuits that started before this
@@ -7755,11 +7811,20 @@ control_event_privcount_circuit_cell(const channel_t *chan,
   /* Some fields are mandatory, so the string will never be empty */
   tor_assert(len > 0);
 
-  send_control_event(EVENT_PRIVCOUNT_CIRCUIT_CELL,
-                     "650 PRIVCOUNT_CIRCUIT_CELL %s\r\n",
-                     event_string);
+  if (CIRCUIT_IS_ORCIRC(circ) &&
+      TO_OR_CIRCUIT(circ)->signal_control_event_buffer) {
+    or_circuit_t *orcirc_with_buf = TO_OR_CIRCUIT(circ);
+    tor_assert(!orcirc_with_buf->signal_never_coming);
+    tor_assert(!orcirc_with_buf->signal_received_from_client);
+    smartlist_add(orcirc_with_buf->signal_control_event_buffer, event_string);
+  } else {
+    send_control_event(EVENT_PRIVCOUNT_CIRCUIT_CELL,
+                       "650 PRIVCOUNT_CIRCUIT_CELL %s\r\n",
+                       event_string);
 
-  tor_free(event_string);
+    tor_free(event_string);
+  }
+
   SMARTLIST_FOREACH(fields, char *, f, tor_free(f));
   smartlist_free(fields);
 }
@@ -8164,12 +8229,12 @@ control_event_privcount_circuit_close(circuit_t *circ,
                            orcirc->privcount_n_dir_bytes_outbound);
   }
 
-  if (orcirc && orcirc->received_signal_from_client) {
+  if (orcirc && orcirc->signal_received_from_client) {
     smartlist_add_asprintf(fields, "ReceivedCircuitSignal=1");
-    if(orcirc->most_recent_signal_payload) {
-      privcount_cleanse_tagged_str(orcirc->most_recent_signal_payload);
+    if(orcirc->signal_most_recent_payload) {
+      privcount_cleanse_tagged_str(orcirc->signal_most_recent_payload);
       smartlist_add_asprintf(fields, "MostRecentCircuitSignalPayload=%s",
-          orcirc->most_recent_signal_payload);
+          orcirc->signal_most_recent_payload);
     }
   }
 

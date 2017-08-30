@@ -3414,8 +3414,11 @@ typedef struct or_circuit_t {
   unsigned int is_first_hop : 1;
 
   /* rob: got a signal cell on this circuit */
-  unsigned int received_signal_from_client : 1;
-  char* most_recent_signal_payload;
+  unsigned int signal_received_from_client : 1;
+  char* signal_most_recent_payload;
+  unsigned int signal_never_coming : 1;
+  /* to store cell events in case we get a signal later */
+  smartlist_t *signal_control_event_buffer;
 
   /** If set, this circuit carries HS traffic. Consider it in any HS
    *  statistics. */

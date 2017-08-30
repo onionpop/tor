@@ -1635,7 +1635,7 @@ connection_edge_process_relay_cell(cell_t *cell, circuit_t *circ,
         or_circuit_t* orcirc = TO_OR_CIRCUIT(circ);
 
         if (orcirc->p_chan) {
-          orcirc->received_signal_from_client = 1;
+          orcirc->signal_received_from_client = 1;
 
           char* message = NULL;
 
@@ -1647,10 +1647,10 @@ connection_edge_process_relay_cell(cell_t *cell, circuit_t *circ,
             tor_snprintf(message, message_len + 1, "%s",
                 (char*)(cell->payload + RELAY_HEADER_SIZE));
 
-            if(orcirc->most_recent_signal_payload) {
-              tor_free(orcirc->most_recent_signal_payload);
+            if(orcirc->signal_most_recent_payload) {
+              tor_free(orcirc->signal_most_recent_payload);
             }
-            orcirc->most_recent_signal_payload = message;
+            orcirc->signal_most_recent_payload = message;
           }
 
           const node_t* prev_node = node_get_by_id(orcirc->p_chan->identity_digest);

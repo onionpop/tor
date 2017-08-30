@@ -968,7 +968,16 @@ circuit_free(circuit_t *circ)
       other->rend_splice = NULL;
     }
 
-    tor_free(ocirc->most_recent_signal_payload);
+    tor_free(ocirc->signal_most_recent_payload);
+
+    if (ocirc->signal_control_event_buffer) {
+      SMARTLIST_FOREACH_BEGIN(ocirc->signal_control_event_buffer,
+          char*, cell_event_string) {
+        tor_free(cell_event_string);
+      } SMARTLIST_FOREACH_END(cell_event_string);
+      smartlist_free(ocirc->signal_control_event_buffer);
+      ocirc->signal_control_event_buffer = NULL;
+    }
 
     /* remove from map. */
     circuit_set_p_circid_chan(ocirc, 0, NULL);
