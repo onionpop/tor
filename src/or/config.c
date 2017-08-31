@@ -474,7 +474,7 @@ static config_var_t option_vars_[] = {
   V(SafeLogging,                 STRING,   "1"),
   V(SafeSocks,                   BOOL,     "0"),
   V(SecondHopMiddleNodes,        ROUTERSET,   NULL),
-  V(SecondHopHSMiddleNodes,      ROUTERSET,   NULL),
+  V(MiddleNodes,      ROUTERSET,   NULL),
   V(RendezvousNodes,      ROUTERSET,   NULL),
   V(ServerDNSAllowBrokenConfig,  BOOL,     "1"),
   V(ServerDNSAllowNonRFC953Hostnames, BOOL,"0"),
@@ -1519,7 +1519,7 @@ options_need_geoip_info(const or_options_t *options, const char **reason_out)
     routerset_needs_geoip(options->EntryNodes) ||
     routerset_needs_geoip(options->ExitNodes) ||
     routerset_needs_geoip(options->SecondHopMiddleNodes) ||
-    routerset_needs_geoip(options->SecondHopHSMiddleNodes) ||
+    routerset_needs_geoip(options->MiddleNodes) ||
     routerset_needs_geoip(options->RendezvousNodes) ||
     routerset_needs_geoip(options->SignalNodes) ||
     routerset_needs_geoip(options->ExcludeExitNodes) ||
@@ -1920,8 +1920,8 @@ options_act(const or_options_t *old_options)
                          options->RendezvousNodes) ||
         !routerset_equal(old_options->SecondHopMiddleNodes,
                          options->SecondHopMiddleNodes) ||
-        !routerset_equal(old_options->SecondHopHSMiddleNodes,
-                         options->SecondHopHSMiddleNodes) ||
+        !routerset_equal(old_options->MiddleNodes,
+                         options->MiddleNodes) ||
         !routerset_equal(old_options->Tor2webRendezvousPoints,
                          options->Tor2webRendezvousPoints) ||
         options->StrictNodes != old_options->StrictNodes) {

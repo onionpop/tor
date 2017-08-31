@@ -3677,12 +3677,12 @@ typedef struct {
   char *Address; /**< OR only: configured address for this onion router. */
   char *PidFile; /**< Where to store PID of Tor process. */
 
+  /* Rob added: relays to consider for any middle node on all circuits.
+   * Uses the same format as EntryNodes and ExitNodes. */
+  routerset_t *MiddleNodes;
   /* Rob added: relays to consider for 2nd hop from client on all circuits.
    * Uses the same format as EntryNodes and ExitNodes. */
   routerset_t *SecondHopMiddleNodes;
-  /* Rob added: relays to consider for 2nd hop from client on HS circuits.
-   * Uses the same format as EntryNodes and ExitNodes. */
-  routerset_t *SecondHopHSMiddleNodes;
   /* Rob added: relays to consider for rendezvous node on HS circuits */
   routerset_t *RendezvousNodes;
   routerset_t *ExitNodes; /**< Structure containing nicknames, digests,

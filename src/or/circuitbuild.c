@@ -2302,22 +2302,18 @@ choose_good_middle_server(uint8_t purpose,
     flags |= CRN_ALLOW_INVALID;
 
   /** rob added - start **/
-  const char* state_str = circuit_purpose_to_controller_hs_state_string(purpose);
-  int purpose_is_hs = state_str ? 1 : 0;
-
-  if (cur_len == 1 &&
-      (options->SecondHopMiddleNodes ||
-          (purpose_is_hs && options->SecondHopHSMiddleNodes))) {
+  if(cur_len >= 1 && (options->MiddleNodes || options->SecondHopMiddleNodes)) {
     smartlist_t* choices = smartlist_new();
-    int hs_middle = 0;
 
-    if(purpose_is_hs && options->SecondHopHSMiddleNodes) {
-      routerset_get_all_nodes(choices, options->SecondHopHSMiddleNodes,
-                                options->ExcludeNodes, 0);
-      hs_middle = 1;
-    } else {
+    // get valid middles
+    if (options->MiddleNodes) {
+      routerset_get_all_nodes(choices, options->MiddleNodes,
+                              options->ExcludeNodes, 0);
+    }
+
+    if(cur_len == 1 && options->SecondHopMiddleNodes) {
       routerset_get_all_nodes(choices, options->SecondHopMiddleNodes,
-                                      options->ExcludeNodes, 0);
+                              options->ExcludeNodes, 0);
     }
 
     smartlist_subtract(choices, excluded);
@@ -2327,18 +2323,16 @@ choose_good_middle_server(uint8_t purpose,
     if(choice) {
       extend_info_t *info = extend_info_from_node(choice, 0);
 
-      log_info(LD_CIRC,"chose router %s from %s for "
+      log_info(LD_CIRC,"chose router %s from configured middle nodes for "
                        "hop %d of circuit with purpose %u (%s)",
                 extend_info_describe(info),
-                hs_middle ? "SecondHopHSMiddleNodes" : "SecondHopMiddleNodes",
                 cur_len+1, purpose, circuit_purpose_to_string(purpose));
 
       extend_info_free(info);
     } else {
-      log_info(LD_CIRC,"failed to find router from %s for "
+      log_info(LD_CIRC,"failed to find router from configured middle nodes for "
                        "hop %d of circuit with purpose %u (%s), "
                        "falling back to normal middle selection",
-                hs_middle ? "SecondHopHSMiddleNodes" : "SecondHopMiddleNodes",
                 cur_len+1, purpose, circuit_purpose_to_string(purpose));
     }
   }
