@@ -21,8 +21,7 @@ int circuit_receive_relay_cell(cell_t *cell, circuit_t *circ,
 void relay_header_pack(uint8_t *dest, const relay_header_t *src);
 void relay_header_unpack(relay_header_t *dest, const uint8_t *src);
 
-int relay_send_signal_if_appropriate(origin_circuit_t *circ, char* socks_payload,
-    size_t socks_payload_len);
+int relay_send_signal_if_appropriate(origin_circuit_t *circ, char* socks_payload);
 
 MOCK_DECL(int,
 relay_send_command_from_edge_,(streamid_t stream_id, circuit_t *circ,

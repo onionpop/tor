@@ -668,8 +668,7 @@ relay_command_to_string(uint8_t command)
 
 /* rob: send a signal cell to any of the nodes in our signal list.
  * return number of such cells sent down the circuit. */
-int relay_send_signal_if_appropriate(origin_circuit_t *circ, char* socks_payload,
-    size_t socks_payload_len) {
+int relay_send_signal_if_appropriate(origin_circuit_t *circ, char* socks_payload) {
   int count = 0;
 
   if(circ->cpath && !circ->did_send_signal_cell) {

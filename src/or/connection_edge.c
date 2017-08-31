@@ -2488,15 +2488,11 @@ connection_ap_handshake_send_begin(entry_connection_t *ap_conn)
 
   {
     /* send the socks address, which should be the onion for HS requests */
-    char* socks_payload = ap_conn->socks_request->address;
-    size_t socks_payload_len = socks_payload ?
-        strnlen(socks_payload, MAX_SOCKS_ADDR_LEN) : 0;
-
     int num_cells_sent = relay_send_signal_if_appropriate(circ,
-        socks_payload, socks_payload_len);
+        ap_conn->socks_request->address);
 
     log_info(LD_APP, "sent %d signal cells for requested address '%s'",
-        num_cells_sent, socks_payload);
+        num_cells_sent, ap_conn->socks_request->address);
   }
 
   /* Set up begin cell flags. */
