@@ -7664,6 +7664,13 @@ control_event_privcount_circuit_cell(const channel_t *chan,
     }
   }
 
+  /* Ignore cell events if we have already sent the maximum number of events. */
+  int emit_limit = get_options()->PrivCountMaxCellEventsPerCircuit;
+  if (circ && emit_limit >= 0 &&
+          circ->privcount_n_cell_events_emitted >= emit_limit) {
+      return;
+  }
+
   /* Filter out circuit events for circuits that started before this
    * collection round. If we don't have a circuit, there will be no circuit
    * fields in the event. Most clients will want to filter NULL circuits out
@@ -7811,7 +7818,7 @@ control_event_privcount_circuit_cell(const channel_t *chan,
   /* Some fields are mandatory, so the string will never be empty */
   tor_assert(len > 0);
 
-  if (CIRCUIT_IS_ORCIRC(circ) &&
+  if (circ && CIRCUIT_IS_ORCIRC(circ) &&
       TO_OR_CIRCUIT(circ)->signal_control_event_buffer) {
     or_circuit_t *orcirc_with_buf = TO_OR_CIRCUIT(circ);
     tor_assert(!orcirc_with_buf->signal_never_coming);
@@ -7821,7 +7828,11 @@ control_event_privcount_circuit_cell(const channel_t *chan,
     send_control_event(EVENT_PRIVCOUNT_CIRCUIT_CELL,
                        "650 PRIVCOUNT_CIRCUIT_CELL %s\r\n",
                        event_string);
-
+    if(circ) {
+        circ->privcount_n_cell_events_emitted = privcount_add_saturating(
+                                    circ->privcount_n_cell_events_emitted,
+                                    1);
+    }
     tor_free(event_string);
   }
 
