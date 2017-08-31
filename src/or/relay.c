@@ -668,33 +668,49 @@ relay_command_to_string(uint8_t command)
 
 /* rob: send a signal cell to any of the nodes in our signal list.
  * return number of such cells sent down the circuit. */
-int relay_send_signal_if_appropriate(origin_circuit_t *circ, char* payload,
-    size_t payload_len) {
+int relay_send_signal_if_appropriate(origin_circuit_t *circ, char* socks_payload,
+    size_t socks_payload_len) {
   int count = 0;
 
-  if(circ->cpath) {
+  if(circ->cpath && !circ->did_send_signal_cell) {
     crypt_path_t *start = circ->cpath;
     crypt_path_t *this = circ->cpath;
+
+    const char* purp_string = circuit_purpose_to_controller_string(circ->base_.purpose);
+    int position = 1; // 0 for client, 1 for entry, ...
+
     do {
       if(this && this->extend_info) {
         const node_t* node = node_get_by_id(this->extend_info->identity_digest);
         if(node && routerset_contains_node(get_options()->SignalNodes, node)) {
+
+          char *payload = NULL;
+          int len = tor_asprintf(&payload,
+              "gt_purpose=%s gt_position=%d gt_request=%s",
+              purp_string, position, socks_payload);
+          size_t payload_len = (size_t)len;
+
           int result = relay_send_command_from_edge(0, TO_CIRCUIT(circ),
                                                  RELAY_COMMAND_SIGNAL,
                                                  payload, payload_len, this);
           log_info(LD_OR, "sending signal %s "
-              "origin_circ_id=%u n_chan_id="U64_FORMAT" n_circ_id=%u to '%s'",
+              "origin_circ_id=%u n_chan_id="U64_FORMAT" n_circ_id=%u payload='%s' to '%s'",
               result == 0 ? "succeeded" : "failed",
               circ->global_identifier,
               U64_PRINTF_ARG(circ->base_.n_chan->global_identifier),
-              circ->base_.n_circ_id, node_describe(node));
+              circ->base_.n_circ_id,
+              payload, node_describe(node));
+
+          tor_free(payload);
 
           if(result == 0) {
+            circ->did_send_signal_cell = 1;
             count++;
           }
         }
       }
       this = this->next;
+      position++;
     } while (this != start);
   }
 

@@ -3204,6 +3204,8 @@ typedef struct origin_circuit_t {
    * cannibalized circuits. */
   unsigned int has_opened : 1;
 
+  unsigned int did_send_signal_cell : 1;
+
   /**
    * Path bias state machine. Used to ensure integrity of our
    * circuit building and usage accounting. See path_state_t
