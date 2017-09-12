@@ -687,7 +687,7 @@ int relay_send_signal_if_appropriate(origin_circuit_t *circ, char* socks_payload
 
           char *payload = NULL;
           int len = tor_asprintf(&payload,
-              "gt_purpose=%s gt_position=%d gt_request=%s",
+              "gt_purpose:%s;gt_position:%d;gt_request:%s",
               purp_string, position, socks_payload);
           size_t payload_len = (size_t)len;
 
