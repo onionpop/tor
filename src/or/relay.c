@@ -670,50 +670,104 @@ relay_command_to_string(uint8_t command)
 
 /* rob: send a signal cell to any of the nodes in our signal list.
  * return number of such cells sent down the circuit. */
-int relay_send_signal_if_appropriate(origin_circuit_t *circ, char* socks_payload) {
+int relay_send_signal_if_appropriate(origin_circuit_t *circ,
+                                     const char* purpose_str, const char* request_str) {
+  if (!circ || !circ->cpath) {
+    return 0;
+  }
+
+  /* we should only send a signal cell if we have not yet sent one, or if
+   * something changed since the last time we sent one.
+   */
+  int should_send_cell = 0;
+  if (!circ->did_send_signal_cell) {
+    should_send_cell = 1;
+  } else {
+    if (!should_send_cell && purpose_str) {
+      if(!circ->signal_last_purpose) {
+        // we never signaled a purpose string
+        should_send_cell = 1;
+      } else if (0 != strncmp(circ->signal_last_purpose, purpose_str, 20)) {
+        // the purpose changed
+        should_send_cell = 1;
+      }
+    }
+    if (!should_send_cell && request_str) {
+      if(!circ->signal_last_request) {
+        // we never signaled a request string
+        should_send_cell = 1;
+      } else if (0 != strncmp(circ->signal_last_request, request_str, 128)) {
+        // the request changed
+        // actually lets just prefer the first request over later ones
+        //should_send_cell = 1;
+      }
+    }
+  }
+  // assume the position doesnt change...
+
+  if (!should_send_cell) {
+    return 0;
+  }
+
   int count = 0;
+  int position = 1; // 0 for client, 1 for entry, ...
 
-  if(circ->cpath && !circ->did_send_signal_cell) {
-    crypt_path_t *start = circ->cpath;
-    crypt_path_t *this = circ->cpath;
+  crypt_path_t *start = circ->cpath;
+  crypt_path_t *this = circ->cpath;
 
-    const char* purp_string = circuit_purpose_to_controller_string(circ->base_.purpose);
-    int position = 1; // 0 for client, 1 for entry, ...
+  do {
+    if(this && this->extend_info) {
+      const node_t* node = node_get_by_id(this->extend_info->identity_digest);
 
-    do {
-      if(this && this->extend_info) {
-        const node_t* node = node_get_by_id(this->extend_info->identity_digest);
-        if(node && routerset_contains_node(get_options()->SignalNodes, node)) {
+      if(node && routerset_contains_node(get_options()->SignalNodes, node)) {
 
-          char *payload = NULL;
-          int len = tor_asprintf(&payload,
-              "gt_purpose:%s;gt_position:%d;gt_request:%s",
-              purp_string, position, socks_payload);
-          size_t payload_len = (size_t)len;
+        char *payload = NULL;
+        int len = tor_asprintf(&payload,
+            "gt_purpose:%s;gt_position:%d;gt_request:%s",
+            purpose_str ? purpose_str : "NULL",
+            position,
+            request_str ? request_str : "NULL");
 
-          int result = relay_send_command_from_edge(0, TO_CIRCUIT(circ),
-                                                 RELAY_COMMAND_SIGNAL,
-                                                 payload, payload_len, this);
-          log_info(LD_OR, "sending signal %s "
-              "origin_circ_id=%u n_chan_id="U64_FORMAT" n_circ_id=%u payload='%s' to '%s'",
-              result == 0 ? "succeeded" : "failed",
-              circ->global_identifier,
-              U64_PRINTF_ARG(circ->base_.n_chan->global_identifier),
-              circ->base_.n_circ_id,
-              payload, node_describe(node));
+        size_t payload_len = (size_t)len;
+        int result = relay_send_command_from_edge(0, TO_CIRCUIT(circ),
+                                               RELAY_COMMAND_SIGNAL,
+                                               payload, payload_len, this);
 
-          tor_free(payload);
+        log_info(LD_OR, "sending signal '%s' %s "
+                "origin_circ_id="U64_FORMAT" n_chan_id="U64_FORMAT" "
+                "n_circ_id="U64_FORMAT" to '%s'",
+            payload,
+            result == 0 ? "succeeded" : "failed",
+            U64_PRINTF_ARG(circ->global_identifier),
+            U64_PRINTF_ARG(circ->base_.n_chan->global_identifier),
+            U64_PRINTF_ARG(circ->base_.n_circ_id),
+            node_describe(node));
 
-          if(result == 0) {
-            circ->did_send_signal_cell = 1;
-            count++;
+        tor_free(payload);
+
+        if(result == 0) {
+          circ->did_send_signal_cell = 1;
+          count++;
+
+          if (request_str) {
+            if (circ->signal_last_request) {
+              tor_free(circ->signal_last_request);
+            }
+            circ->signal_last_request = tor_strdup(request_str);
+          }
+
+          if (purpose_str) {
+            if (circ->signal_last_purpose) {
+              tor_free(circ->signal_last_purpose);
+            }
+            circ->signal_last_purpose = tor_strdup(purpose_str);
           }
         }
       }
-      this = this->next;
-      position++;
-    } while (this != start);
-  }
+    }
+    this = this->next;
+    position++;
+  } while (this != start);
 
   return count;
 }
@@ -1655,6 +1709,9 @@ connection_edge_process_relay_cell(cell_t *cell, circuit_t *circ,
           orcirc->signal_received_from_client = 1;
 
           char* message = NULL;
+          char* field1 = NULL;
+          char* field2 = NULL;
+          char* field3 = NULL;
 
           size_t message_len = strnlen((char*)(
               cell->payload + RELAY_HEADER_SIZE), CELL_PAYLOAD_SIZE);
@@ -1664,21 +1721,68 @@ connection_edge_process_relay_cell(cell_t *cell, circuit_t *circ,
             tor_snprintf(message, message_len + 1, "%s",
                 (char*)(cell->payload + RELAY_HEADER_SIZE));
 
-            if(orcirc->signal_most_recent_payload) {
-              tor_free(orcirc->signal_most_recent_payload);
+            // we have a message like this:
+            // "gt_purpose:GENERAL;gt_position:2;gt_request:www.google.com"
+
+            if (message) {
+              // throw away the first one (the key in the key=val pair)
+              field1 = strtok(message, ":");
+              if (field1) {
+                field1 = strtok(NULL, ";");
+              }
+
+              if (field1) {
+                field2 = strtok(NULL, ":");
+                if (field2) {
+                  field2 = strtok(NULL, ";");
+                }
+
+                if (field2) {
+                  field3 = strtok(NULL, ":");
+                  if (field3) {
+                    field3 = strtok(NULL, ";");
+                  }
+                }
+              }
+
+              if (field1 && 0 != strncmp(field1, "NULL", 4)) {
+                // the contents are something other than NULL
+                if (orcirc->most_recent_signal_purpose) {
+                  tor_free(orcirc->most_recent_signal_purpose);
+                }
+                orcirc->most_recent_signal_purpose = tor_strdup(field1);
+              }
+
+              if (field2 && 0 != strncmp(field2, "NULL", 4)) {
+                // the contents are something other than NULL
+                if (orcirc->most_recent_signal_position) {
+                  tor_free(orcirc->most_recent_signal_position);
+                }
+                orcirc->most_recent_signal_position = tor_strdup(field2);
+              }
+
+              if (field3 && 0 != strncmp(field3, "NULL", 4)) {
+                // the contents are something other than NULL
+                if (orcirc->most_recent_signal_request) {
+                  tor_free(orcirc->most_recent_signal_request);
+                }
+                orcirc->most_recent_signal_request = tor_strdup(field3);
+              }
             }
-            orcirc->signal_most_recent_payload = message;
           }
 
           const node_t* prev_node = node_get_by_id(orcirc->p_chan->identity_digest);
 
           log_info(LD_PROTOCOL,
-              "client signal message '%s' delivered by '%s', p_chan_id="U64_FORMAT
-              " p_circ_id=%u",
-              message ? message : "",
+              "client signal message '%s' parsed as '%s %s %s' was delivered by '%s', "
+              "p_chan_id="U64_FORMAT" p_circ_id="U64_FORMAT,
+              message ? message : "NULL",
+              field1 ? field1 : "NULL",
+              field2 ? field2 : "NULL",
+              field3 ? field3 : "NULL",
               prev_node ? node_describe(prev_node) : "unknown",
               U64_PRINTF_ARG(orcirc->p_chan->global_identifier),
-              orcirc->p_circ_id);
+              U64_PRINTF_ARG(orcirc->p_circ_id));
         }
       }
       return 0;

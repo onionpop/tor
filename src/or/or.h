@@ -3205,6 +3205,9 @@ typedef struct origin_circuit_t {
   unsigned int has_opened : 1;
 
   unsigned int did_send_signal_cell : 1;
+  char* signal_last_purpose;
+  char* signal_last_request;
+  int signal_last_position;
 
   /**
    * Path bias state machine. Used to ensure integrity of our
@@ -3421,7 +3424,9 @@ typedef struct or_circuit_t {
 
   /* rob: got a signal cell on this circuit */
   unsigned int signal_received_from_client : 1;
-  char* signal_most_recent_payload;
+  char* most_recent_signal_purpose;
+  char* most_recent_signal_request;
+  char* most_recent_signal_position;
   unsigned int signal_never_coming : 1;
   /* to store cell events in case we get a signal later */
   smartlist_t *signal_control_event_buffer;

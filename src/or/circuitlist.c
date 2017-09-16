@@ -932,6 +932,13 @@ circuit_free(circuit_t *circ)
     crypto_pk_free(ocirc->intro_key);
     rend_data_free(ocirc->rend_data);
 
+    if (ocirc->signal_last_purpose) {
+      tor_free(ocirc->signal_last_purpose);
+    }
+    if (ocirc->signal_last_request) {
+      tor_free(ocirc->signal_last_request);
+    }
+
     tor_free(ocirc->dest_address);
     if (ocirc->socks_username) {
       memwipe(ocirc->socks_username, 0x12, ocirc->socks_username_len);
@@ -968,7 +975,15 @@ circuit_free(circuit_t *circ)
       other->rend_splice = NULL;
     }
 
-    tor_free(ocirc->signal_most_recent_payload);
+    if (ocirc->most_recent_signal_purpose) {
+      tor_free(ocirc->most_recent_signal_purpose);
+    }
+    if (ocirc->most_recent_signal_position) {
+      tor_free(ocirc->most_recent_signal_position);
+    }
+    if (ocirc->most_recent_signal_request) {
+      tor_free(ocirc->most_recent_signal_request);
+    }
 
     if (ocirc->signal_control_event_buffer) {
       SMARTLIST_FOREACH_BEGIN(ocirc->signal_control_event_buffer,

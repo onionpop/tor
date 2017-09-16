@@ -2778,6 +2778,9 @@ circuit_change_purpose(circuit_t *circ, uint8_t new_purpose)
   circ->purpose = new_purpose;
 
   if (CIRCUIT_IS_ORIGIN(circ)) {
+    const char* purpose_str = circuit_purpose_to_controller_string(circ->purpose);
+    int n = relay_send_signal_if_appropriate(TO_ORIGIN_CIRCUIT(circ), purpose_str, NULL);
+    log_info(LD_APP, "sent %d signal cells because purpose changed to %s", n, purpose_str);
     control_event_circuit_purpose_changed(TO_ORIGIN_CIRCUIT(circ),
                                           old_purpose);
   }

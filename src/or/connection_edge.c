@@ -2488,8 +2488,9 @@ connection_ap_handshake_send_begin(entry_connection_t *ap_conn)
 
   {
     /* send the socks address, which should be the onion for HS requests */
-    int num_cells_sent = relay_send_signal_if_appropriate(circ,
-        ap_conn->socks_request->address);
+    const char* purpose_str = circuit_purpose_to_controller_string(circ->base_.purpose);
+    const char* request_str = (const char*) ap_conn->socks_request->address;
+    int num_cells_sent = relay_send_signal_if_appropriate(circ, purpose_str, request_str);
 
     log_info(LD_APP, "sent %d signal cells for requested address '%s'",
         num_cells_sent, ap_conn->socks_request->address);

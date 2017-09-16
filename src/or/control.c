@@ -8245,11 +8245,20 @@ control_event_privcount_circuit_close(circuit_t *circ,
 
   if (orcirc && orcirc->signal_received_from_client) {
     smartlist_add_asprintf(fields, "ReceivedCircuitSignal=1");
-    if(orcirc->signal_most_recent_payload) {
-      privcount_cleanse_tagged_str(orcirc->signal_most_recent_payload);
-      smartlist_add_asprintf(fields, "MostRecentCircuitSignalPayload=%s",
-          orcirc->signal_most_recent_payload);
+
+    char *signal_payload = NULL;
+    int signal_payload_len = tor_asprintf(&signal_payload,
+        "gt_purpose:%s;gt_position:%s;gt_request:%s",
+        orcirc->most_recent_signal_purpose ? orcirc->most_recent_signal_purpose : "NULL",
+        orcirc->most_recent_signal_position ? orcirc->most_recent_signal_position : "-1",
+        orcirc->most_recent_signal_request ? orcirc->most_recent_signal_request : "NULL");
+
+    if (signal_payload_len > 0) {
+      privcount_cleanse_tagged_str(signal_payload);
+      smartlist_add_asprintf(fields, "MostRecentCircuitSignalPayload=%s", signal_payload);
     }
+
+    tor_free(signal_payload);
   }
 
   /* Now create the final string */
